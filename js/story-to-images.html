@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Story to Images - MediaMind AI</title>
+
+    <link rel="stylesheet" href="css/style.css">
+
+</head>
+
+<body>
+
+    <!-- ================= NAVBAR ================= -->
+
+    <nav class="navbar">
+
+        <div class="logo">
+            🎬 MediaMind <span>AI</span>
+        </div>
+
+        <div class="nav-links">
+
+            <a href="index.html">
+                Home
+            </a>
+
+            <a href="story-to-images.html" class="active">
+                Story to Images
+            </a>
+
+            <a href="video-to-reels.html">
+                Video to Reels
+            </a>
+
+            <a href="index.html#features">
+                Features
+            </a>
+
+        </div>
+
+    </nav>
+
+
+    <!-- ================= TOOL SECTION ================= -->
+
+    <section class="tool-section">
+
+        <!-- ================= HEADER ================= -->
+
+        <div class="tool-header">
+
+            <div class="badge">
+                ✨ AI CREATIVE TOOL
+            </div>
+
+            <h1>
+                Story to <span>Images</span>
+            </h1>
+
+            <p>
+                Transform your story into beautiful visual scenes
+                with AI-powered creative prompts.
+            </p>
+
+        </div>
+
+
+        <!-- ================= TOOL CARD ================= -->
+
+        <div class="tool-card">
+
+
+            <!-- ================= STORY INPUT ================= -->
+
+            <div class="tool-options">
+
+                <h3>
+                    📖 Enter Your Story
+                </h3>
+
+                <p style="margin-bottom:15px; color:#667085;">
+                    Write or paste your story below.
+                    MediaMind AI will divide it into scenes.
+                </p>
+
+                <textarea
+                    id="storyInput"
+                    placeholder="Example: Once upon a time, a young boy lived in a small village. One day, he discovered a mysterious forest. He entered the forest and found a magical castle..."
+                ></textarea>
+
+            </div>
+
+
+            <!-- ================= SETTINGS ================= -->
+
+            <div class="tool-options">
+
+                <h3>
+                    ⚙️ Image Settings
+                </h3>
+
+                <div class="form-row">
+
+
+                    <!-- IMAGE STYLE -->
+
+                    <div>
+
+                        <label for="styleSelect">
+                            Image Style
+                        </label>
+
+                        <select id="styleSelect">
+
+                            <option value="Cinematic">
+                                🎬 Cinematic
+                            </option>
+
+                            <option value="Realistic">
+                                📸 Realistic
+                            </option>
+
+                            <option value="Cartoon">
+                                🎨 Cartoon
+                            </option>
+
+                            <option value="Anime">
+                                🌸 Anime
+                            </option>
+
+                        </select>
+
+                    </div>
+
+
+                    <!-- SCENE COUNT -->
+
+                    <div>
+
+                        <label for="sceneCount">
+                            Number of Scenes
+                        </label>
+
+                        <select id="sceneCount">
+
+                            <option value="3">
+                                3 Scenes
+                            </option>
+
+                            <option value="4">
+                                4 Scenes
+                            </option>
+
+                            <option value="5">
+                                5 Scenes
+                            </option>
+
+                            <option value="6">
+                                6 Scenes
+                            </option>
+
+                        </select>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- ================= GENERATE BUTTON ================= -->
+
+            <button
+                class="btn primary"
+                onclick="generateScenes()"
+            >
+
+                ✨ Generate Scenes
+
+            </button>
+
+
+            <!-- ================= RESULT ================= -->
+
+            <div
+                id="resultSection"
+                style="display:none; margin-top:35px;"
+            >
+
+                <h2 style="margin-bottom:20px;">
+                    🎨 Generated Scenes
+                </h2>
+
+                <div
+                    id="sceneContainer"
+                ></div>
+
+            </div>
+
+
+        </div>
+
+    </section>
+
+
+    <!-- ================= FOOTER ================= -->
+
+    <footer>
+
+        <p>
+            © 2026 MediaMind AI.
+            All Rights Reserved.
+        </p>
+
+    </footer>
+
+
+    <!-- ================= JAVASCRIPT ================= -->
+
+    <script src="js/story.js"></script>
+
+</body>
+
+</html>

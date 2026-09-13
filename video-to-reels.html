@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Video to Reels - MediaMind AI</title>
+
+    <link rel="stylesheet" href="css/style.css">
+
+</head>
+
+<body>
+
+    <!-- ================= NAVBAR ================= -->
+
+    <nav class="navbar">
+
+        <div class="logo">
+            🎬 MediaMind <span>AI</span>
+        </div>
+
+        <div class="nav-links">
+
+            <a href="index.html">
+                Home
+            </a>
+
+            <a href="story-to-images.html">
+                Story to Images
+            </a>
+
+            <a href="video-to-reels.html" class="active">
+                Video to Reels
+            </a>
+
+            <a href="index.html#features">
+                Features
+            </a>
+
+        </div>
+
+    </nav>
+
+
+    <!-- ================= TOOL SECTION ================= -->
+
+    <section class="tool-section">
+
+        <!-- HEADER -->
+
+        <div class="tool-header">
+
+            <div class="badge">
+                🎬 AI VIDEO TOOL
+            </div>
+
+            <h1>
+                Video to <span>Reels</span>
+            </h1>
+
+            <p>
+                Upload your video and create short,
+                social-media-ready reels.
+            </p>
+
+        </div>
+
+
+        <!-- ================= TOOL CARD ================= -->
+
+        <div class="tool-card">
+
+
+            <!-- ================= UPLOAD ================= -->
+
+            <div class="upload-box">
+
+                <div class="upload-icon">
+                    🎥
+                </div>
+
+                <h3>
+                    Upload Your Video
+                </h3>
+
+                <p>
+                    MP4, WebM, MOV and other video formats
+                </p>
+
+                <input
+                    type="file"
+                    id="videoInput"
+                    accept="video/*"
+                >
+
+                <p id="fileName"></p>
+
+                <!-- FFmpeg STATUS -->
+
+                <p id="ffmpegStatus">
+                    ⚪ FFmpeg not loaded
+                </p>
+
+                <div id="progressContainer" style="
+    display:none;
+    width:100%;
+    margin-top:15px;
+">
+
+    <div style="
+        width:100%;
+        height:12px;
+        background:#e5e7eb;
+        border-radius:10px;
+        overflow:hidden;
+    ">
+
+        <div id="progressBar" style="
+            width:0%;
+            height:100%;
+            background:#2563eb;
+            transition:width 0.2s;
+        "></div>
+
+    </div>
+
+    <p id="progressText" style="
+        text-align:center;
+        margin-top:8px;
+    ">
+        0%
+    </p>
+
+</div>
+
+            </div>
+
+
+            <!-- ================= VIDEO PREVIEW ================= -->
+
+            <div
+                id="videoPreview"
+                class="video-preview"
+                style="display:none;"
+            >
+
+                <h3>
+                    🎞️ Video Preview
+                </h3>
+
+                <div
+                    id="reelFrame"
+                    style="
+                        width:360px;
+                        max-width:100%;
+                        aspect-ratio:9/16;
+                        margin:20px auto;
+                        overflow:hidden;
+                        border-radius:16px;
+                        background:#000;
+                        display:flex;
+                        justify-content:center;
+                        align-items:center;
+                    "
+                >
+
+                    <video
+                        id="previewPlayer"
+                        controls
+                        style="
+                            width:100%;
+                            height:100%;
+                            object-fit:cover;
+                        "
+                    ></video>
+
+                </div>
+
+                <p id="durationText"></p>
+
+            </div>
+
+
+            <!-- ================= TRIM ================= -->
+
+            <div
+                id="trimSection"
+                class="tool-options"
+                style="display:none;"
+            >
+
+                <h3>
+                    ✂️ Trim Video
+                </h3>
+
+
+                <div class="form-row">
+
+                    <div>
+
+                        <label for="startTime">
+                            Start Time (seconds)
+                        </label>
+
+                        <input
+                            type="number"
+                            id="startTime"
+                            value="0"
+                            min="0"
+                            step="0.1"
+                        >
+
+                    </div>
+
+
+                    <div>
+
+                        <label for="endTime">
+                            End Time (seconds)
+                        </label>
+
+                        <input
+                            type="number"
+                            id="endTime"
+                            value="15"
+                            min="0"
+                            step="0.1"
+                        >
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- ================= REEL SETTINGS ================= -->
+
+            <div class="tool-options">
+
+                <h3>
+                    ⚙️ Reel Settings
+                </h3>
+
+
+                <div class="form-row">
+
+
+                    <!-- DURATION -->
+
+                    <div>
+
+                        <label for="reelDuration">
+                            Reel Duration
+                        </label>
+
+                        <select id="reelDuration">
+
+                            <option value="15">
+                                15 Seconds
+                            </option>
+
+                            <option value="30">
+                                30 Seconds
+                            </option>
+
+                            <option value="60">
+                                60 Seconds
+                            </option>
+
+                        </select>
+
+                    </div>
+
+
+                    <!-- ASPECT RATIO -->
+
+                    <div>
+
+                        <label for="aspectRatio">
+                            Aspect Ratio
+                        </label>
+
+                        <select id="aspectRatio">
+
+                            <option value="9:16">
+                                9:16 Vertical
+                            </option>
+
+                            <option value="1:1">
+                                1:1 Square
+                            </option>
+
+                        </select>
+
+                    </div>
+
+                </div>
+
+
+                <!-- CAPTION STYLE -->
+
+                <div style="margin-top:20px;">
+
+    <label for="captionText">
+        📝 Reel Caption
+    </label>
+
+    <textarea
+        id="captionText"
+        placeholder="Enter your caption..."
+        rows="3"
+        style="
+            width:100%;
+            padding:12px;
+            margin-top:8px;
+            border-radius:10px;
+            border:1px solid #ddd;
+            resize:vertical;
+        "
+    ></textarea>
+
+</div>
+
+                <div>
+
+                    <label for="captionStyle">
+                        Caption Style
+                    </label>
+
+                    <select id="captionStyle">
+
+                        <option value="Modern">
+                            Modern
+                        </option>
+
+                        <option value="Bold">
+                            Bold
+                        </option>
+
+                        <option value="Minimal">
+                            Minimal
+                        </option>
+
+                    </select>
+
+                </div>
+
+
+                <!-- FEATURES -->
+
+                <div class="feature-options">
+
+                    <label>
+
+                        <input
+                            type="checkbox"
+                            id="autoCrop"
+                            checked
+                        >
+
+                        📱 Auto Crop
+
+                    </label>
+
+
+                    <label>
+
+                        <input
+                            type="checkbox"
+                            id="autoCaption"
+                            checked
+                        >
+
+                        📝 Auto
+
+                        <div id="captionStatus" style="
+    margin-top:15px;
+    padding:12px;
+    border-radius:10px;
+    background:#f3f4f6;
+    display:none;
+">
+    📝 Captions are being generated...
+</div>
+                    </label>
+
+
+                    <label>
+
+                        <input
+                            type="checkbox"
+                            id="smartCut"
+                            checked
+                        >
+
+                        🧠 Smart Cutting
+
+                    </label>
+
+                </div>
+
+            </div>
+
+
+            <!-- ================= CREATE REEL ================= -->
+
+            <button
+                class="btn primary"
+                onclick="createReel()"
+            >
+
+                🎬 Create Reel
+
+            </button>
+
+
+            <!-- ================= RESULT ================= -->
+
+            <div
+                id="reelResult"
+                class="reel-result-card"
+                style="display:none;"
+            >
+
+                <h2>
+                    🎉 Reel Created
+                </h2>
+
+
+                <!-- RESULT VIDEO -->
+
+                <video
+                    id="resultVideo"
+                    controls
+                    style="
+                        width:100%;
+                        max-width:360px;
+                        display:none;
+                        margin:20px auto;
+                        border-radius:16px;
+                        background:#000;
+                    "
+                ></video>
+
+
+                <!-- DETAILS -->
+
+                <div id="reelDetails"></div>
+
+
+                <!-- DOWNLOAD -->
+
+                <a
+                    id="downloadReel"
+                    class="btn primary"
+                    href="#"
+                    style="display:none;"
+                >
+                    ⬇️ Download MP4 Reel
+                </a>
+
+            </div>
+
+
+        </div>
+
+    </section>
+
+
+    <!-- ================= FOOTER ================= -->
+
+    <footer>
+
+        <p>
+            © 2026 MediaMind AI.
+            All Rights Reserved.
+        </p>
+
+    </footer>
+
+
+    <!-- ================= JAVASCRIPT ================= -->
+
+    <script
+        type="module"
+        src="js/video.js"
+    ></script>
+
+</body>
+
+</html>
