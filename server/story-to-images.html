@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Story to Images - MediaMind AI</title>
+
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+    <nav class="navbar">
+        <div class="logo">MediaMind AI</div>
+
+        <div class="nav-links">
+            <a href="index.html">Home</a>
+            <a href="story-to-images.html">Story to Images</a>
+            <a href="video-to-reels.html">Video to Reels</a>
+        </div>
+    </nav>
+
+    <main class="container">
+
+        <section class="hero">
+            <h1>Story to Images</h1>
+            <p>Convert your story into AI image prompts.</p>
+        </section>
+
+        <section class="card">
+
+            <h2>Enter Your Story</h2>
+
+            <textarea
+                id="storyInput"
+                rows="10"
+                placeholder="Write your story here..."
+            ></textarea>
+
+            <button id="generateBtn">
+                Generate Images
+            </button>
+
+        </section>
+
+        <section
+            id="results"
+            class="card"
+            style="display:none;"
+        >
+
+            <h2>Generated Image Prompts</h2>
+
+            <div id="imageResults"></div>
+
+        </section>
+
+    </main>
+
+    <script src="js/story.js"></script>
+
+</body>
+</html>
