@@ -9,15 +9,19 @@ require("dotenv").config();
 const app = express();
 const PORT = 3000;
 
+const serverFolder = __dirname;
+const projectFolder = path.join(__dirname, "..");
+
 // ===============================
-// Middleware
+// MIDDLEWARE
 // ===============================
 
 app.use(cors());
 app.use(express.json());
+app.use(express.static(projectFolder));
 
 // ===============================
-// Check API Key
+// OPENAI
 // ===============================
 
 console.log(
@@ -26,27 +30,18 @@ console.log(
 );
 
 if (!process.env.OPENAI_API_KEY) {
-    console.log("⚠️ OPENAI_API_KEY is missing in server/.env");
-}
-
-// ===============================
-// OpenAI Client
-// ===============================
-
-const apiKey = process.env.OPENAI_API_KEY;
-
-if (!apiKey) {
-    console.error("❌ OPENAI_API_KEY not loaded");
+    console.error("❌ OPENAI_API_KEY is missing in server/.env");
     process.exit(1);
 }
 
+const client = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY
+});
+
 console.log("✅ OPENAI_API_KEY loaded");
 
-const client = new OpenAI({
-    apiKey: apiKey
-});
 // ===============================
-// Upload Folder
+// UPLOAD FOLDER
 // ===============================
 
 const uploadFolder = path.join(__dirname, "uploads");
@@ -57,23 +52,33 @@ if (!fs.existsSync(uploadFolder)) {
     });
 }
 
-// ===============================
-// Multer Upload Configuration
-// ===============================
-
 const upload = multer({
     dest: uploadFolder,
-
     limits: {
         fileSize: 500 * 1024 * 1024
     }
 });
 
 // ===============================
-// Home Route
+// STORY TO IMAGES PAGE
+// ===============================
+
+app.get("/story-to-images.html", (req, res) => {
+
+    const filePath = path.join(
+        serverFolder,
+        "story-to-images.html"
+    );
+
+    res.sendFile(filePath);
+});
+
+// ===============================
+// HOME
 // ===============================
 
 app.get("/", (req, res) => {
+
     res.json({
         success: true,
         message: "MediaMind AI Backend Running 🚀"
@@ -81,22 +86,102 @@ app.get("/", (req, res) => {
 });
 
 // ===============================
-// API Key Test Route
+// API STATUS
 // ===============================
 
 app.get("/api/status", (req, res) => {
 
-    const keyLoaded = Boolean(
-        process.env.OPENAI_API_KEY
-    );
-
     res.json({
         success: true,
-        apiKeyLoaded: keyLoaded,
-        message: keyLoaded
-            ? "API key is loaded"
-            : "API key is missing"
+        apiKeyLoaded: Boolean(
+            process.env.OPENAI_API_KEY
+        ),
+        message: "API is running"
     });
+});
+
+// ===============================
+// STORY TO IMAGE PROMPTS
+// ===============================
+
+app.post("/api/story-to-images", async (req, res) => {
+
+    try {
+
+        const { story } = req.body;
+
+        if (!story || !story.trim()) {
+
+            return res.status(400).json({
+                success: false,
+                error: "Please enter your story."
+            });
+        }
+
+        console.log("");
+        console.log("==============================");
+        console.log("📖 STORY TO IMAGES");
+        console.log("==============================");
+
+        const response = await client.responses.create({
+
+            model: "gpt-5.6-luna",
+
+            input: [
+                {
+                    role: "system",
+                    content:
+                        "You are an expert cinematic AI image prompt writer."
+                },
+
+                {
+                    role: "user",
+                    content: `
+Convert the story below into exactly 5 detailed cinematic AI image prompts.
+
+Rules:
+
+1. Create exactly 5 scenes.
+2. Each scene must describe an important moment.
+3. Include characters.
+4. Include environment.
+5. Include lighting.
+6. Include camera angle.
+7. Include mood.
+8. Make the prompts suitable for AI image generation.
+9. Do not give explanations.
+10. Return only the 5 numbered prompts.
+
+Story:
+
+${story}
+`
+                }
+            ]
+        });
+
+        const prompts = response.output_text || "";
+
+        console.log("✅ Prompts generated");
+
+        res.json({
+            success: true,
+            prompts: prompts
+        });
+
+    } catch (error) {
+
+        console.error("");
+        console.error("❌ STORY TO IMAGES ERROR");
+        console.error(error);
+
+        res.status(500).json({
+            success: false,
+            error:
+                error?.message ||
+                "Failed to generate image prompts."
+        });
+    }
 });
 
 // ===============================
@@ -112,37 +197,20 @@ app.post(
 
         try {
 
-            // -------------------------------
-            // Check API Key
-            // -------------------------------
-
-            if (!process.env.OPENAI_API_KEY) {
-
-                return res.status(500).json({
-                    success: false,
-                    error:
-                        "OPENAI_API_KEY is missing in server/.env"
-                });
-            }
-
-            // -------------------------------
-            // Check Video
-            // -------------------------------
-
             if (!req.file) {
 
                 return res.status(400).json({
                     success: false,
-                    error: "Video file is required"
+                    error: "Video file is required."
                 });
             }
 
             uploadedFile = req.file.path;
 
             console.log("");
-            console.log("================================");
-            console.log("🎤 Starting transcription");
-            console.log("================================");
+            console.log("==============================");
+            console.log("🎤 STARTING TRANSCRIPTION");
+            console.log("==============================");
 
             console.log(
                 "File:",
@@ -155,15 +223,6 @@ app.post(
                 "bytes"
             );
 
-            console.log(
-                "Temporary file:",
-                req.file.path
-            );
-
-            // -------------------------------
-            // OpenAI Whisper Transcription
-            // -------------------------------
-
             const transcription =
                 await client.audio.transcriptions.create({
 
@@ -173,44 +232,30 @@ app.post(
 
                     model: "whisper-1",
 
-                    response_format: "verbose_json",
+                    response_format:
+                        "verbose_json",
 
-                    timestamp_granularities: [
-                        "segment"
-                    ]
+                    timestamp_granularities:
+                        ["segment"]
                 });
-
-            console.log("");
-            console.log(
-                "✅ Transcription completed"
-            );
-
-            // -------------------------------
-            // Get Segments
-            // -------------------------------
 
             const segments =
                 (transcription.segments || [])
-                    .map((segment) => {
+                    .map((segment) => ({
 
-                        return {
+                        id: segment.id,
 
-                            id: segment.id,
+                        start: segment.start,
 
-                            start: segment.start,
+                        end: segment.end,
 
-                            end: segment.end,
+                        text:
+                            segment.text
+                                ? segment.text.trim()
+                                : ""
+                    }));
 
-                            text:
-                                segment.text
-                                    ? segment.text.trim()
-                                    : ""
-                        };
-                    });
-
-            // -------------------------------
-            // Response
-            // -------------------------------
+            console.log("✅ Transcription completed");
 
             res.json({
 
@@ -225,39 +270,16 @@ app.post(
                 duration:
                     transcription.duration || null,
 
-                segments: segments
+                segments:
+                    segments
             });
 
         } catch (error) {
 
-            console.log("");
-            console.log(
-                "❌ Transcription error"
+            console.error(
+                "❌ Transcription error:",
+                error
             );
-
-            console.error(error);
-
-            // -------------------------------
-            // Invalid API Key
-            // -------------------------------
-
-            if (
-                error &&
-                error.code === "invalid_api_key"
-            ) {
-
-                return res.status(401).json({
-
-                    success: false,
-
-                    error:
-                        "Invalid OpenAI API key. Please check server/.env"
-                });
-            }
-
-            // -------------------------------
-            // Other Errors
-            // -------------------------------
 
             res.status(500).json({
 
@@ -265,14 +287,10 @@ app.post(
 
                 error:
                     error?.message ||
-                    "Transcription failed"
+                    "Transcription failed."
             });
 
         } finally {
-
-            // -------------------------------
-            // Delete Temporary Video
-            // -------------------------------
 
             if (uploadedFile) {
 
@@ -306,7 +324,7 @@ app.post(
 );
 
 // ===============================
-// Multer / Server Error Handler
+// MULTER ERROR
 // ===============================
 
 app.use(
@@ -318,7 +336,8 @@ app.use(
         );
 
         if (
-            error instanceof multer.MulterError
+            error instanceof
+            multer.MulterError
         ) {
 
             if (
@@ -348,30 +367,27 @@ app.use(
 );
 
 // ===============================
-// Start Server
+// START SERVER
 // ===============================
 
-app.listen(
-    PORT,
-    () => {
+app.listen(PORT, () => {
 
-        console.log("");
-        console.log(
-            "======================================"
-        );
+    console.log("");
+    console.log(
+        "======================================"
+    );
 
-        console.log(
-            "🚀 MediaMind AI Backend Running"
-        );
+    console.log(
+        "🚀 MediaMind AI Backend Running"
+    );
 
-        console.log(
-            `🌐 http://localhost:${PORT}`
-        );
+    console.log(
+        `🌐 http://localhost:${PORT}`
+    );
 
-        console.log(
-            "======================================"
-        );
+    console.log(
+        "======================================"
+    );
 
-        console.log("");
-    }
-);
+    console.log("");
+});
