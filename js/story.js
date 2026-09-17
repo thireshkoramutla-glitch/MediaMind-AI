@@ -1,120 +1,110 @@
-let generatedScenes = [];
+const storyInput = document.getElementById("storyInput");
+const generateBtn = document.getElementById("generateBtn");
+const results = document.getElementById("results");
+const imageResults = document.getElementById("imageResults");
 
-function generateScenes() {
-
-    const storyInput = document.getElementById("storyInput");
-    const styleSelect = document.getElementById("styleSelect");
-    const sceneCountInput = document.getElementById("sceneCount");
-
-    const resultSection = document.getElementById("resultSection");
-    const sceneContainer = document.getElementById("sceneContainer");
-
-    if (!storyInput || !styleSelect || !sceneCountInput) {
-        return;
-    }
+generateBtn.addEventListener("click", () => {
 
     const story = storyInput.value.trim();
 
-    if (story.length < 20) {
-        alert("దయచేసి కనీసం 20 characters ఉన్న story ఇవ్వండి.");
+    if (!story) {
+        alert("Please enter your story.");
         return;
     }
 
-    const style = styleSelect.value;
-    const sceneCount = parseInt(sceneCountInput.value);
-
+    // Split story into sentences
     const sentences = story
         .split(/[.!?]+/)
         .map(sentence => sentence.trim())
         .filter(sentence => sentence.length > 0);
 
-    generatedScenes = [];
-
-    for (let i = 0; i < sceneCount; i++) {
-
-        let text;
-
-        if (sentences[i]) {
-            text = sentences[i];
-        } else {
-            text = sentences[i % sentences.length];
-        }
-
-        const prompt =
-            `${style} style cinematic scene: ${text}, `
-            + `high quality, detailed, dramatic lighting`;
-
-        generatedScenes.push({
-            scene: i + 1,
-            text: text,
-            prompt: prompt
-        });
-    }
-
-    sceneContainer.innerHTML = "";
-
-    generatedScenes.forEach(function (scene) {
-
-        const card = document.createElement("div");
-
-        card.className = "feature-card";
-
-        card.style.marginBottom = "20px";
-
-        card.innerHTML = `
-            <h3>Scene ${scene.scene}</h3>
-
-            <p style="margin:15px 0;">
-                ${escapeHTML(scene.text)}
-            </p>
-
-            <textarea readonly>${escapeHTML(scene.prompt)}</textarea>
-
-            <br><br>
-
-            <button class="btn primary"
-                onclick="copyPrompt(${scene.scene - 1})">
-                📋 Copy Prompt
-            </button>
-        `;
-
-        sceneContainer.appendChild(card);
-
-    });
-
-    resultSection.style.display = "block";
-
-    resultSection.scrollIntoView({
-        behavior: "smooth"
-    });
-}
-
-
-function copyPrompt(index) {
-
-    if (!generatedScenes[index]) {
+    if (sentences.length === 0) {
+        alert("Please enter a valid story.");
         return;
     }
 
-    const prompt = generatedScenes[index].prompt;
+    imageResults.innerHTML = "";
 
-    navigator.clipboard.writeText(prompt)
-        .then(function () {
-            alert("Prompt copied!");
-        })
-        .catch(function () {
-            alert("Prompt copy failed.");
+    sentences.forEach((sentence, index) => {
+
+        const prompt = `
+Cinematic AI image for scene ${index + 1}.
+Story scene: ${sentence}.
+Create a highly detailed, realistic cinematic scene,
+dramatic lighting, beautiful composition,
+professional photography, 16:9 aspect ratio.
+        `.trim();
+
+        const card = document.createElement("div");
+
+        card.style.cssText = `
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+            padding: 20px;
+            margin-top: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.06);
+        `;
+
+        card.innerHTML = `
+            <h3 style="color:#2563eb; margin-bottom:10px;">
+                Scene ${index + 1}
+            </h3>
+
+            <p style="line-height:1.6; margin-bottom:15px;">
+                <strong>Story:</strong> ${escapeHTML(sentence)}
+            </p>
+
+            <div style="
+                background:#f8fafc;
+                padding:15px;
+                border-radius:10px;
+                line-height:1.6;
+            ">
+                <strong>AI Image Prompt:</strong><br>
+                ${escapeHTML(prompt)}
+            </div>
+
+            <button
+                class="copy-btn"
+                style="
+                    margin-top:15px;
+                    padding:10px 18px;
+                    border:none;
+                    border-radius:8px;
+                    background:#2563eb;
+                    color:white;
+                    cursor:pointer;
+                "
+            >
+                Copy Prompt
+            </button>
+        `;
+
+        const copyBtn = card.querySelector(".copy-btn");
+
+        copyBtn.addEventListener("click", async () => {
+            await navigator.clipboard.writeText(prompt);
+            copyBtn.textContent = "Copied ✓";
+
+            setTimeout(() => {
+                copyBtn.textContent = "Copy Prompt";
+            }, 1500);
         });
 
-}
+        imageResults.appendChild(card);
+    });
+
+    results.style.display = "block";
+
+    results.scrollIntoView({
+        behavior: "smooth"
+    });
+});
 
 
 function escapeHTML(text) {
-
-    return text
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+    const div = document.createElement("div");
+    div.textContent = text;
+    return div.innerHTML;
 }
