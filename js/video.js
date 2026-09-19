@@ -575,7 +575,7 @@ async function transcribeVideo() {
 
     const response =
         await fetch(
-            "http://localhost:3000/api/transcribe",
+            "https://mediamind-ai-backend.onrender.com/api/transcribe",
             {
                 method: "POST",
                 body: formData
