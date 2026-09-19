@@ -9,48 +9,61 @@ require("dotenv").config();
 const app = express();
 const PORT = 3000;
 
-const serverFolder = __dirname;
 const projectFolder = path.join(__dirname, "..");
+const uploadFolder = path.join(__dirname, "uploads");
 
-// ===============================
+// =====================================
 // MIDDLEWARE
-// ===============================
+// =====================================
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
 app.use(express.static(projectFolder));
 
-// ===============================
-// OPENAI
-// ===============================
+// =====================================
+// API KEYS
+// =====================================
 
 console.log(
-    "API KEY LOADED:",
-    process.env.OPENAI_API_KEY ? "YES" : "NO"
+    "POLLINATIONS API KEY LOADED:",
+    process.env.POLLINATIONS_API_KEY ? "YES" : "NO"
 );
 
-if (!process.env.OPENAI_API_KEY) {
-    console.error("❌ OPENAI_API_KEY is missing in server/.env");
+if (!process.env.POLLINATIONS_API_KEY) {
+    console.error(
+        "❌ POLLINATIONS_API_KEY is missing in server/.env"
+    );
     process.exit(1);
 }
 
-const client = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY
-});
+console.log("✅ POLLINATIONS_API_KEY loaded");
 
-console.log("✅ OPENAI_API_KEY loaded");
+// OpenAI is optional
+let openaiClient = null;
 
-// ===============================
+if (process.env.OPENAI_API_KEY) {
+    openaiClient = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY
+    });
+
+    console.log("✅ OPENAI_API_KEY loaded");
+} else {
+    console.log("ℹ️ OPENAI_API_KEY not found");
+}
+
+// =====================================
 // UPLOAD FOLDER
-// ===============================
-
-const uploadFolder = path.join(__dirname, "uploads");
+// =====================================
 
 if (!fs.existsSync(uploadFolder)) {
     fs.mkdirSync(uploadFolder, {
         recursive: true
     });
 }
+
+// =====================================
+// MULTER
+// =====================================
 
 const upload = multer({
     dest: uploadFolder,
@@ -59,84 +72,237 @@ const upload = multer({
     }
 });
 
-// ===============================
-// STORY TO IMAGES PAGE
-// ===============================
-
-app.get("/story-to-images.html", (req, res) => {
-
-    const filePath = path.join(
-        serverFolder,
-        "story-to-images.html"
-    );
-
-    res.sendFile(filePath);
-});
-
-// ===============================
+// =====================================
 // HOME
-// ===============================
+// =====================================
 
 app.get("/", (req, res) => {
-
     res.json({
         success: true,
         message: "MediaMind AI Backend Running 🚀"
     });
 });
 
-// ===============================
-// API STATUS
-// ===============================
+// =====================================
+// STATUS
+// =====================================
 
 app.get("/api/status", (req, res) => {
-
     res.json({
         success: true,
-        apiKeyLoaded: Boolean(
-            process.env.OPENAI_API_KEY
-        ),
-        message: "API is running"
+        pollinationsKeyLoaded:
+            Boolean(process.env.POLLINATIONS_API_KEY),
+
+        openAIKeyLoaded:
+            Boolean(process.env.OPENAI_API_KEY),
+
+        message:
+            "MediaMind AI API is running"
     });
 });
 
-// ===============================
-// STORY TO IMAGE PROMPTS
-// ===============================
+// =====================================
+// STORY PAGE
+// =====================================
 
-app.post("/api/story-to-images", async (req, res) => {
+app.get("/story-to-images.html", (req, res) => {
 
-    try {
+    const filePath = path.join(
+        projectFolder,
+        "story-to-images.html"
+    );
 
-        const { story } = req.body;
+    res.sendFile(filePath);
+});
 
-        if (!story || !story.trim()) {
+// =====================================
+// 🖼️ POLLINATIONS IMAGE GENERATION
+// =====================================
 
-            return res.status(400).json({
+app.post(
+    "/api/generate-image",
+    async (req, res) => {
+
+        try {
+
+            const { prompt } = req.body;
+
+            if (!prompt || !prompt.trim()) {
+
+                return res.status(400).json({
+                    success: false,
+                    error:
+                        "Image prompt is required."
+                });
+            }
+
+            console.log("");
+            console.log("==============================");
+            console.log("🖼️ POLLINATIONS IMAGE");
+            console.log("==============================");
+
+            console.log(
+                "⏳ Generating image..."
+            );
+
+            const encodedPrompt =
+                encodeURIComponent(
+                    prompt.trim()
+                );
+
+            const imageUrl =
+                `https://gen.pollinations.ai/image/${encodedPrompt}?model=flux&width=1536&height=864`;
+
+            const response =
+                await fetch(
+                    imageUrl,
+                    {
+                        method: "GET",
+
+                        headers: {
+                            "Authorization":
+                                `Bearer ${process.env.POLLINATIONS_API_KEY}`,
+
+                            "Accept":
+                                "image/*"
+                        }
+                    }
+                );
+
+            if (!response.ok) {
+
+                const errorText =
+                    await response.text();
+
+                console.error(
+                    "Pollinations Status:",
+                    response.status
+                );
+
+                console.error(
+                    "Pollinations Error:",
+                    errorText
+                );
+
+                return res.status(
+                    response.status
+                ).json({
+
+                    success: false,
+
+                    error:
+                        `Pollinations error ${response.status}: ${errorText}`
+                });
+            }
+
+            const imageBuffer =
+                Buffer.from(
+                    await response.arrayBuffer()
+                );
+
+            const imageBase64 =
+                imageBuffer.toString(
+                    "base64"
+                );
+
+            const mimeType =
+                response.headers.get(
+                    "content-type"
+                ) || "image/jpeg";
+
+            console.log(
+                "✅ Image generated successfully"
+            );
+
+            res.json({
+
+                success: true,
+
+                image:
+                    imageBase64,
+
+                mimeType:
+                    mimeType
+            });
+
+        } catch (error) {
+
+            console.error(
+                "❌ POLLINATIONS IMAGE ERROR:",
+                error.message
+            );
+
+            res.status(500).json({
+
                 success: false,
-                error: "Please enter your story."
+
+                error:
+                    error.message ||
+                    "Image generation failed."
             });
         }
+    }
+);
 
-        console.log("");
-        console.log("==============================");
-        console.log("📖 STORY TO IMAGES");
-        console.log("==============================");
+// =====================================
+// 📖 STORY TO AI PROMPTS
+// =====================================
 
-        const response = await client.responses.create({
+app.post(
+    "/api/story-to-images",
+    async (req, res) => {
 
-            model: "gpt-5.6-luna",
+        try {
 
-            input: [
-                {
-                    role: "system",
-                    content:
-                        "You are an expert cinematic AI image prompt writer."
-                },
+            const { story } = req.body;
 
-                {
-                    role: "user",
-                    content: `
+            if (!story || !story.trim()) {
+
+                return res.status(400).json({
+
+                    success: false,
+
+                    error:
+                        "Please enter your story."
+                });
+            }
+
+            if (!openaiClient) {
+
+                return res.status(503).json({
+
+                    success: false,
+
+                    error:
+                        "OPENAI_API_KEY is not configured."
+                });
+            }
+
+            console.log("");
+            console.log("==============================");
+            console.log("📖 STORY TO IMAGES");
+            console.log("==============================");
+
+            const response =
+                await openaiClient.responses.create({
+
+                    model:
+                        "gpt-5.6-luna",
+
+                    input: [
+
+                        {
+                            role: "system",
+
+                            content:
+                                "You are an expert cinematic AI image prompt writer."
+                        },
+
+                        {
+                            role: "user",
+
+                            content: `
+
 Convert the story below into exactly 5 detailed cinematic AI image prompts.
 
 Rules:
@@ -155,120 +321,286 @@ Rules:
 Story:
 
 ${story}
+
 `
-                }
-            ]
-        });
+                        }
 
-        const prompts = response.output_text || "";
+                    ]
+                });
 
-        console.log("✅ Prompts generated");
+            const prompts =
+                response.output_text ||
+                "";
 
-        res.json({
-            success: true,
-            prompts: prompts
-        });
+            console.log(
+                "✅ Prompts generated"
+            );
 
-    } catch (error) {
+            res.json({
 
-        console.error("");
-        console.error("❌ STORY TO IMAGES ERROR");
-        console.error(error);
+                success: true,
 
-        res.status(500).json({
-            success: false,
-            error:
-                error?.message ||
-                "Failed to generate image prompts."
-        });
+                prompts:
+                    prompts
+            });
+
+        } catch (error) {
+
+            console.error(
+                "❌ STORY ERROR:",
+                error.message
+            );
+
+            res.status(500).json({
+
+                success: false,
+
+                error:
+                    error.message ||
+                    "Failed to generate prompts."
+            });
+        }
     }
-});
+);
 
-// ===============================
-// VIDEO TRANSCRIPTION
-// ===============================
+// =====================================
+// 🎤 VIDEO TRANSCRIPTION
+// POLLINATIONS
+// =====================================
 
 app.post(
     "/api/transcribe",
     upload.single("video"),
+
     async (req, res) => {
 
         let uploadedFile = null;
 
         try {
 
-            if (!req.file) {
+            // ---------------------------------
+            // CHECK API KEY
+            // ---------------------------------
 
-                return res.status(400).json({
+            if (!process.env.POLLINATIONS_API_KEY) {
+
+                return res.status(503).json({
+
                     success: false,
-                    error: "Video file is required."
+
+                    error:
+                        "POLLINATIONS_API_KEY is not configured."
                 });
             }
 
-            uploadedFile = req.file.path;
+            // ---------------------------------
+            // CHECK VIDEO
+            // ---------------------------------
+
+            if (!req.file) {
+
+                return res.status(400).json({
+
+                    success: false,
+
+                    error:
+                        "Video file is required."
+                });
+            }
+
+            uploadedFile =
+                req.file.path;
 
             console.log("");
             console.log("==============================");
-            console.log("🎤 STARTING TRANSCRIPTION");
+            console.log(
+                "🎤 POLLINATIONS TRANSCRIPTION"
+            );
             console.log("==============================");
 
             console.log(
-                "File:",
-                req.file.originalname
+                "⏳ Converting speech to text..."
             );
+
+            // ---------------------------------
+            // READ VIDEO FILE
+            // ---------------------------------
+
+            const fileBuffer =
+                fs.readFileSync(
+                    req.file.path
+                );
+
+            // ---------------------------------
+            // CREATE FORM DATA
+            // ---------------------------------
+
+            const formData =
+                new FormData();
+
+            formData.append(
+                "file",
+
+                new Blob(
+                    [fileBuffer],
+
+                    {
+                        type:
+                            req.file.mimetype ||
+                            "video/mp4"
+                    }
+                ),
+
+                req.file.originalname ||
+                "video.mp4"
+            );
+
+            // ---------------------------------
+            // TRANSCRIPTION MODEL
+            // ---------------------------------
+
+            formData.append(
+                "model",
+                "whisper-1"
+            );
+
+            formData.append(
+                "response_format",
+                "verbose_json"
+            );
+
+            formData.append(
+                "timestamp_granularities",
+                "segment"
+            );
+
+            // ---------------------------------
+            // SEND TO POLLINATIONS
+            // ---------------------------------
+
+            const response =
+                await fetch(
+
+                    "https://gen.pollinations.ai/v1/audio/transcriptions",
+
+                    {
+
+                        method: "POST",
+
+                        headers: {
+
+                            "Authorization":
+                                `Bearer ${process.env.POLLINATIONS_API_KEY}`
+                        },
+
+                        body:
+                            formData
+                    }
+                );
+
+            const responseText =
+                await response.text();
 
             console.log(
-                "Size:",
-                req.file.size,
-                "bytes"
+                "Pollinations Transcription Status:",
+                response.status
             );
 
-            const transcription =
-                await client.audio.transcriptions.create({
+            // ---------------------------------
+            // ERROR
+            // ---------------------------------
 
-                    file: fs.createReadStream(
-                        req.file.path
-                    ),
+            if (!response.ok) {
 
-                    model: "whisper-1",
+                console.error(
+                    "❌ Transcription Error:",
+                    responseText
+                );
 
-                    response_format:
-                        "verbose_json",
+                return res.status(
+                    response.status
+                ).json({
 
-                    timestamp_granularities:
-                        ["segment"]
+                    success: false,
+
+                    error:
+                        `Pollinations transcription error ${response.status}: ${responseText}`
                 });
+            }
+
+            // ---------------------------------
+            // PARSE RESULT
+            // ---------------------------------
+
+            const transcription =
+                JSON.parse(
+                    responseText
+                );
+
+            // ---------------------------------
+            // SEGMENTS
+            // ---------------------------------
 
             const segments =
-                (transcription.segments || [])
-                    .map((segment) => ({
+                Array.isArray(
+                    transcription.segments
+                )
 
-                        id: segment.id,
+                    ?
 
-                        start: segment.start,
+                    transcription.segments.map(
+                        (segment, index) => ({
 
-                        end: segment.end,
+                            id:
+                                segment.id ??
+                                index,
 
-                        text:
-                            segment.text
-                                ? segment.text.trim()
-                                : ""
-                    }));
+                            start:
+                                Number(
+                                    segment.start ||
+                                    0
+                                ),
 
-            console.log("✅ Transcription completed");
+                            end:
+                                Number(
+                                    segment.end ||
+                                    0
+                                ),
+
+                            text:
+                                segment.text
+                                    ? segment.text.trim()
+                                    : ""
+                        })
+                    )
+
+                    :
+
+                    [];
+
+            console.log(
+                "✅ Transcription completed"
+            );
+
+            // ---------------------------------
+            // SEND RESULT
+            // ---------------------------------
 
             res.json({
 
                 success: true,
 
                 text:
-                    transcription.text || "",
+                    transcription.text ||
+                    "",
 
                 language:
-                    transcription.language || null,
+                    transcription.language ||
+                    null,
 
                 duration:
-                    transcription.duration || null,
+                    transcription.duration ||
+                    null,
 
                 segments:
                     segments
@@ -277,8 +609,8 @@ app.post(
         } catch (error) {
 
             console.error(
-                "❌ Transcription error:",
-                error
+                "❌ TRANSCRIPTION ERROR:",
+                error.message
             );
 
             res.status(500).json({
@@ -286,11 +618,15 @@ app.post(
                 success: false,
 
                 error:
-                    error?.message ||
+                    error.message ||
                     "Transcription failed."
             });
 
         } finally {
+
+            // ---------------------------------
+            // DELETE TEMP VIDEO
+            // ---------------------------------
 
             if (uploadedFile) {
 
@@ -314,7 +650,7 @@ app.post(
                 } catch (deleteError) {
 
                     console.error(
-                        "⚠️ Could not delete temporary file:",
+                        "⚠️ Delete error:",
                         deleteError.message
                     );
                 }
@@ -323,15 +659,15 @@ app.post(
     }
 );
 
-// ===============================
-// MULTER ERROR
-// ===============================
+// =====================================
+// ERROR HANDLER
+// =====================================
 
 app.use(
     (error, req, res, next) => {
 
         console.error(
-            "❌ Server error:",
+            "❌ Server Error:",
             error
         );
 
@@ -360,34 +696,39 @@ app.use(
             success: false,
 
             error:
-                error?.message ||
+                error.message ||
                 "Server error"
         });
     }
 );
 
-// ===============================
-// START SERVER
-// ===============================
+// =====================================
+// 🚀 START SERVER
+// =====================================
 
-app.listen(PORT, () => {
+app.listen(
+    PORT,
 
-    console.log("");
-    console.log(
-        "======================================"
-    );
+    () => {
 
-    console.log(
-        "🚀 MediaMind AI Backend Running"
-    );
+        console.log("");
 
-    console.log(
-        `🌐 http://localhost:${PORT}`
-    );
+        console.log(
+            "======================================"
+        );
 
-    console.log(
-        "======================================"
-    );
+        console.log(
+            "🚀 MediaMind AI Backend Running"
+        );
 
-    console.log("");
-});
+        console.log(
+            `🌐 http://localhost:${PORT}`
+        );
+
+        console.log(
+            "======================================"
+        );
+
+        console.log("");
+    }
+);

@@ -3,18 +3,33 @@ import { fetchFile, toBlobURL } from "@ffmpeg/util";
 
 const ffmpeg = new FFmpeg();
 
-// =============================
+let ffmpegLoaded = false;
+let selectedVideo = null;
+let videoURL = null;
+let reelURL = null;
+let videoDuration = 0;
+
+let captionSegments = [];
+let captionFullText = "";
+
+// =====================================
 // ELEMENTS
-// =============================
+// =====================================
 
-const autoCaption =
-    document.getElementById("autoCaption");
+const videoInput = document.getElementById("videoInput");
+const previewSection = document.getElementById("videoPreview");
+const previewPlayer = document.getElementById("previewPlayer");
+const fileName = document.getElementById("fileName");
+const durationText = document.getElementById("durationText");
 
-const captionStatus =
-    document.getElementById("captionStatus");
+const trimSection = document.getElementById("trimSection");
+const startTimeInput = document.getElementById("startTime");
+const endTimeInput = document.getElementById("endTime");
 
-const captionText =
-    document.getElementById("captionText");
+const reelDurationInput = document.getElementById("reelDuration");
+const aspectRatioInput = document.getElementById("aspectRatio");
+
+const ffmpegStatus = document.getElementById("ffmpegStatus");
 
 const progressContainer =
     document.getElementById("progressContainer");
@@ -24,39 +39,6 @@ const progressBar =
 
 const progressText =
     document.getElementById("progressText");
-
-const videoInput =
-    document.getElementById("videoInput");
-
-const previewSection =
-    document.getElementById("videoPreview");
-
-const previewPlayer =
-    document.getElementById("previewPlayer");
-
-const fileName =
-    document.getElementById("fileName");
-
-const durationText =
-    document.getElementById("durationText");
-
-const trimSection =
-    document.getElementById("trimSection");
-
-const startTimeInput =
-    document.getElementById("startTime");
-
-const endTimeInput =
-    document.getElementById("endTime");
-
-const reelDurationInput =
-    document.getElementById("reelDuration");
-
-const aspectRatioInput =
-    document.getElementById("aspectRatio");
-
-const ffmpegStatus =
-    document.getElementById("ffmpegStatus");
 
 const reelResult =
     document.getElementById("reelResult");
@@ -70,23 +52,18 @@ const reelDetails =
 const downloadReel =
     document.getElementById("downloadReel");
 
-// =============================
-// VARIABLES
-// =============================
+const autoCaption =
+    document.getElementById("autoCaption");
 
-let selectedVideo = null;
-let videoURL = null;
-let videoDuration = 0;
-let reelURL = null;
-let ffmpegLoaded = false;
+const captionStatus =
+    document.getElementById("captionStatus");
 
-// Caption data
-let captionSegments = [];
-let captionFullText = "";
+const captionText =
+    document.getElementById("captionText");
 
-// =============================
+// =====================================
 // FFMPEG PROGRESS
-// =============================
+// =====================================
 
 ffmpeg.on("progress", ({ progress }) => {
 
@@ -100,59 +77,52 @@ ffmpeg.on("progress", ({ progress }) => {
         );
 
     if (progressContainer) {
-
-        progressContainer.style.display =
-            "block";
-
+        progressContainer.style.display = "block";
     }
 
     if (progressBar) {
-
         progressBar.style.width =
             percent + "%";
-
     }
 
     if (progressText) {
-
         progressText.textContent =
             percent + "%";
-
     }
 
 });
 
-// =============================
+// =====================================
 // LOAD FFMPEG
-// =============================
+// =====================================
 
 async function loadFFmpeg() {
 
     if (ffmpegLoaded) {
-        return;
+        return true;
     }
 
     try {
 
-        ffmpegStatus.textContent =
-            "🟡 Loading FFmpeg...";
+        if (ffmpegStatus) {
+            ffmpegStatus.textContent =
+                "🟡 Loading FFmpeg...";
+        }
 
         const baseURL =
-            "/node_modules/@ffmpeg/core/dist/esm";
+            "https://unpkg.com/@ffmpeg/core@0.12.10/dist/esm";
 
         await ffmpeg.load({
 
             coreURL:
                 await toBlobURL(
-                    baseURL +
-                    "/ffmpeg-core.js",
+                    `${baseURL}/ffmpeg-core.js`,
                     "text/javascript"
                 ),
 
             wasmURL:
                 await toBlobURL(
-                    baseURL +
-                    "/ffmpeg-core.wasm",
+                    `${baseURL}/ffmpeg-core.wasm`,
                     "application/wasm"
                 )
 
@@ -160,58 +130,275 @@ async function loadFFmpeg() {
 
         ffmpegLoaded = true;
 
-        ffmpegStatus.textContent =
-            "🟢 FFmpeg Ready";
+        if (ffmpegStatus) {
+            ffmpegStatus.textContent =
+                "🟢 FFmpeg Ready";
+        }
 
         console.log(
-            "FFmpeg loaded successfully"
+            "✅ FFmpeg loaded successfully"
         );
+
+        return true;
 
     } catch (error) {
 
         console.error(
-            "FFmpeg Loading Error:",
+            "❌ FFmpeg Loading Error:",
             error
         );
 
-        ffmpegStatus.textContent =
-            "🔴 FFmpeg Loading Failed";
+        if (ffmpegStatus) {
+            ffmpegStatus.textContent =
+                "⚪ FFmpeg not loaded";
+        }
 
-        throw error;
-
+        return false;
     }
 
 }
 
-// =============================
+// =====================================
+// CLEAR OLD REEL
+// =====================================
+
+function clearOldReel() {
+
+    if (reelURL) {
+
+        URL.revokeObjectURL(
+            reelURL
+        );
+
+        reelURL = null;
+    }
+
+    if (resultVideo) {
+
+        resultVideo.pause();
+
+        resultVideo.removeAttribute(
+            "src"
+        );
+
+        resultVideo.load();
+
+        resultVideo.style.display =
+            "none";
+    }
+
+    if (downloadReel) {
+
+        downloadReel.removeAttribute(
+            "href"
+        );
+
+        downloadReel.style.display =
+            "none";
+    }
+
+    if (reelResult) {
+        reelResult.style.display =
+            "none";
+    }
+
+}
+
+// =====================================
+// CLEAN CAPTION TEXT
+// =====================================
+
+function cleanCaptionText(text) {
+
+    if (!text) {
+        return "";
+    }
+
+    return String(text)
+        .replace(
+            /[\r\n]+/g,
+            " "
+        )
+        .replace(
+            /[^A-Za-z0-9 ]+/g,
+            " "
+        )
+        .replace(
+            /\s+/g,
+            " "
+        )
+        .trim();
+
+}
+
+// =====================================
+// VIDEO FILTER
+// =====================================
+
+function makeVideoFilter(ratio) {
+
+    if (ratio === "1:1") {
+
+        return [
+            "scale=1080:1080:force_original_aspect_ratio=decrease",
+            "pad=1080:1080:(ow-iw)/2:(oh-ih)/2"
+        ].join(",");
+
+    }
+
+    return [
+        "scale=720:1280:force_original_aspect_ratio=decrease",
+        "pad=720:1280:(ow-iw)/2:(oh-ih)/2"
+    ].join(",");
+
+}
+
+// =====================================
+// CREATE CAPTION FILTER
+// =====================================
+
+function createCaptionFilter(
+    startTime,
+    finalDuration
+) {
+
+    if (
+        !captionSegments ||
+        captionSegments.length === 0
+    ) {
+        return "";
+    }
+
+    const filters = [];
+
+    for (const segment of captionSegments) {
+
+        const segStart =
+            Number(segment?.start);
+
+        const segEnd =
+            Number(segment?.end);
+
+        if (
+            !Number.isFinite(segStart) ||
+            !Number.isFinite(segEnd)
+        ) {
+            continue;
+        }
+
+        if (
+            segEnd <= startTime
+        ) {
+            continue;
+        }
+
+        if (
+            segStart >=
+            startTime + finalDuration
+        ) {
+            continue;
+        }
+
+        let relativeStart =
+            Math.max(
+                0,
+                segStart - startTime
+            );
+
+        let relativeEnd =
+            Math.min(
+                finalDuration,
+                segEnd - startTime
+            );
+
+        if (
+            relativeEnd <=
+            relativeStart
+        ) {
+            continue;
+        }
+
+        const text =
+            cleanCaptionText(
+                segment?.text
+            );
+
+        if (!text) {
+            continue;
+        }
+
+        const escapedText =
+            text.replace(
+                /:/g,
+                "\\:"
+            );
+
+        const filter =
+            "drawtext=" +
+            "text='" +
+            escapedText +
+            "':" +
+            "fontcolor=white:" +
+            "fontsize=42:" +
+            "borderw=4:" +
+            "bordercolor=black:" +
+            "x=(w-text_w)/2:" +
+            "y=h-180:" +
+            "enable='between(t\\," +
+            relativeStart.toFixed(2) +
+            "\\," +
+            relativeEnd.toFixed(2) +
+            ")'";
+
+        filters.push(filter);
+
+    }
+
+    return filters.join(",");
+
+}
+
+// =====================================
 // VIDEO UPLOAD
-// =============================
+// =====================================
 
 if (videoInput) {
 
     videoInput.addEventListener(
         "change",
-        function () {
+        async function () {
 
             const file =
-                this.files[0];
+                this.files?.[0];
 
             if (!file) {
                 return;
             }
 
-            if (!file.type.startsWith("video/")) {
+            if (
+                !file.type.startsWith(
+                    "video/"
+                )
+            ) {
 
                 alert(
                     "Please select a video file."
                 );
+
+                this.value = "";
 
                 return;
             }
 
             selectedVideo = file;
 
-            // Reset captions
+            console.log(
+                "🎥 Selected video:",
+                file.name
+            );
+
+            clearOldReel();
+
             captionSegments = [];
             captionFullText = "";
 
@@ -219,28 +406,39 @@ if (videoInput) {
                 captionText.value = "";
             }
 
+            if (captionStatus) {
+                captionStatus.style.display =
+                    "none";
+            }
+
+            if (videoURL) {
+
+                URL.revokeObjectURL(
+                    videoURL
+                );
+            }
+
             videoURL =
-                URL.createObjectURL(file);
+                URL.createObjectURL(
+                    file
+                );
 
             if (previewPlayer) {
 
                 previewPlayer.src =
                     videoURL;
 
+                previewPlayer.load();
             }
 
             if (previewSection) {
-
                 previewSection.style.display =
                     "block";
-
             }
 
             if (trimSection) {
-
                 trimSection.style.display =
                     "block";
-
             }
 
             if (fileName) {
@@ -248,32 +446,30 @@ if (videoInput) {
                 fileName.textContent =
                     "Selected: " +
                     file.name;
-
             }
 
             if (durationText) {
 
                 durationText.textContent =
                     "Loading video...";
-
             }
 
-            loadFFmpeg();
+            await loadFFmpeg();
 
         }
     );
 
 }
 
-// =============================
+// =====================================
 // VIDEO METADATA
-// =============================
+// =====================================
 
 if (previewPlayer) {
 
     previewPlayer.addEventListener(
         "loadedmetadata",
-        function () {
+        () => {
 
             videoDuration =
                 previewPlayer.duration;
@@ -284,17 +480,23 @@ if (previewPlayer) {
                     "Duration: " +
                     videoDuration.toFixed(1) +
                     " seconds";
-
             }
 
             if (endTimeInput) {
 
-                endTimeInput.value =
-                    Math.min(
-                        15,
-                        Math.floor(videoDuration)
+                const selectedDuration =
+                    Number(
+                        reelDurationInput?.value ||
+                        15
                     );
 
+                endTimeInput.value =
+                    Math.min(
+                        selectedDuration,
+                        Math.floor(
+                            videoDuration
+                        )
+                    );
             }
 
         }
@@ -302,32 +504,38 @@ if (previewPlayer) {
 
 }
 
-// =============================
-// REEL DURATION UPDATE
-// =============================
+// =====================================
+// REEL DURATION CHANGE
+// =====================================
 
 if (reelDurationInput) {
 
     reelDurationInput.addEventListener(
         "change",
-        function () {
+        () => {
 
             const duration =
-                Number(this.value);
+                Number(
+                    reelDurationInput.value ||
+                    15
+                );
 
             const start =
                 Number(
-                    startTimeInput.value
+                    startTimeInput?.value ||
+                    0
                 );
 
-            if (videoDuration > 0) {
+            if (
+                endTimeInput &&
+                videoDuration > 0
+            ) {
 
                 endTimeInput.value =
                     Math.min(
                         start + duration,
                         videoDuration
                     );
-
             }
 
         }
@@ -335,10 +543,9 @@ if (reelDurationInput) {
 
 }
 
-// =============================
-// REAL AUTO CAPTION
-// SPEECH → TEXT + SEGMENTS
-// =============================
+// =====================================
+// TRANSCRIBE VIDEO
+// =====================================
 
 async function transcribeVideo() {
 
@@ -347,7 +554,6 @@ async function transcribeVideo() {
         throw new Error(
             "Please select a video first."
         );
-
     }
 
     if (captionStatus) {
@@ -357,7 +563,6 @@ async function transcribeVideo() {
 
         captionStatus.textContent =
             "📝 Auto Captions: Converting speech to text...";
-
     }
 
     const formData =
@@ -380,27 +585,29 @@ async function transcribeVideo() {
     const data =
         await response.json();
 
-    if (!response.ok || !data.success) {
+    console.log(
+        "TRANSCRIBE RESPONSE:",
+        data
+    );
+
+    if (
+        !response.ok ||
+        !data.success
+    ) {
 
         throw new Error(
             data.error ||
             "Transcription failed"
         );
-
     }
 
-    console.log(
-        "🎤 Transcription:",
-        data
-    );
-
-    // Full text
     captionFullText =
         data.text || "";
 
-    // Timestamp segments
     captionSegments =
-        Array.isArray(data.segments)
+        Array.isArray(
+            data.segments
+        )
             ? data.segments
             : [];
 
@@ -408,7 +615,15 @@ async function transcribeVideo() {
 
         captionText.value =
             captionFullText;
+    }
 
+    if (captionStatus) {
+
+        captionStatus.style.display =
+            "block";
+
+        captionStatus.textContent =
+            "✅ Auto Captions: Speech converted successfully!";
     }
 
     console.log(
@@ -416,175 +631,13 @@ async function transcribeVideo() {
         captionSegments
     );
 
-    if (captionStatus) {
-
-        captionStatus.textContent =
-            "✅ Auto Captions: Speech converted successfully!";
-
-    }
-
     return data;
 
 }
 
-// =============================
-// ESCAPE CAPTION TEXT
-// =============================
-
-function cleanCaptionText(text) {
-
-    if (!text) {
-        return "";
-    }
-
-    return String(text)
-
-        .replace(
-            /[\r\n]+/g,
-            " "
-        )
-
-        .replace(
-            /\\/g,
-            ""
-        )
-
-        .replace(
-            /'/g,
-            ""
-        )
-
-        .replace(
-            /"/g,
-            ""
-        )
-
-        .replace(
-            /%/g,
-            ""
-        )
-
-        .trim();
-
-}
-
-// =============================
-// CREATE CAPTION FILTER
-// =============================
-
-function createCaptionFilter(
-    startTime,
-    finalDuration
-) {
-
-    if (
-        !captionSegments ||
-        captionSegments.length === 0
-    ) {
-
-        return "";
-
-    }
-
-    const filters = [];
-
-    captionSegments.forEach(
-        (segment, index) => {
-
-            if (
-                !segment ||
-                typeof segment.start !== "number" ||
-                typeof segment.end !== "number"
-            ) {
-
-                return;
-
-            }
-
-            // Original video timing
-            let segmentStart =
-                Number(segment.start);
-
-            let segmentEnd =
-                Number(segment.end);
-
-            // Convert to reel timing
-            let relativeStart =
-                segmentStart -
-                startTime;
-
-            let relativeEnd =
-                segmentEnd -
-                startTime;
-
-            // Skip segments outside reel
-            if (
-                relativeEnd <= 0 ||
-                relativeStart >= finalDuration
-            ) {
-
-                return;
-
-            }
-
-            relativeStart =
-                Math.max(
-                    0,
-                    relativeStart
-                );
-
-            relativeEnd =
-                Math.min(
-                    finalDuration,
-                    relativeEnd
-                );
-
-            const text =
-                cleanCaptionText(
-                    segment.text
-                );
-
-            if (!text) {
-                return;
-            }
-
-            /*
-             * drawtext:
-             * white text
-             * black outline
-             * center bottom
-             */
-
-            const filter =
-                "drawtext=" +
-                "text='" +
-                text +
-                "':" +
-                "fontcolor=white:" +
-                "fontsize=42:" +
-                "fontweight=bold:" +
-                "borderw=4:" +
-                "bordercolor=black:" +
-                "x=(w-text_w)/2:" +
-                "y=h-180:" +
-                "enable='between(t," +
-                relativeStart.toFixed(2) +
-                "," +
-                relativeEnd.toFixed(2) +
-                ")'";
-
-            filters.push(filter);
-
-        }
-    );
-
-    return filters.join(",");
-
-}
-
-// =============================
+// =====================================
 // CREATE REEL
-// =============================
+// =====================================
 
 async function createReel() {
 
@@ -597,41 +650,54 @@ async function createReel() {
         return;
     }
 
+    if (!ffmpegLoaded) {
+
+        const loaded =
+            await loadFFmpeg();
+
+        if (!loaded) {
+
+            alert(
+                "FFmpeg could not be loaded. Please refresh the page."
+            );
+
+            return;
+        }
+
+    }
+
     const startTime =
         Number(
-            startTimeInput.value
+            startTimeInput?.value ||
+            0
         );
 
     let endTime =
         Number(
-            endTimeInput.value
+            endTimeInput?.value ||
+            videoDuration
         );
 
     const selectedDuration =
         Number(
-            reelDurationInput.value
+            reelDurationInput?.value ||
+            15
         );
 
-    // =============================
-    // VALIDATION
-    // =============================
-
-    if (startTime < 0) {
+    if (
+        startTime < 0 ||
+        startTime >= videoDuration
+    ) {
 
         alert(
-            "Start time cannot be negative."
+            "Invalid start time."
         );
 
         return;
     }
 
-    if (startTime >= videoDuration) {
-
-        alert(
-            "Start time is outside the video."
-        );
-
-        return;
+    if (endTime > videoDuration) {
+        endTime = videoDuration;
     }
 
     if (endTime <= startTime) {
@@ -641,13 +707,6 @@ async function createReel() {
         );
 
         return;
-    }
-
-    if (endTime > videoDuration) {
-
-        endTime =
-            videoDuration;
-
     }
 
     const finalDuration =
@@ -665,72 +724,24 @@ async function createReel() {
         return;
     }
 
-    // =============================
-    // LOAD FFMPEG
-    // =============================
-
-    try {
-
-        if (!ffmpegLoaded) {
-
-            await loadFFmpeg();
-
-        }
-
-    } catch (error) {
-
-        alert(
-            "FFmpeg could not be loaded."
-        );
-
-        return;
-
-    }
-
-    if (!ffmpegLoaded) {
-
-        alert(
-            "FFmpeg is not ready."
-        );
-
-        return;
-    }
-
-    // =============================
-    // UI STATUS
-    // =============================
-
-    if (ffmpegStatus) {
-
-        ffmpegStatus.textContent =
-            "🟡 Creating Reel... Please wait";
-
-    }
-
     if (progressContainer) {
-
         progressContainer.style.display =
             "block";
-
     }
 
     if (progressBar) {
-
         progressBar.style.width =
             "0%";
-
     }
 
     if (progressText) {
-
         progressText.textContent =
             "0%";
-
     }
 
-    // =============================
-    // AUTO CAPTION
-    // =============================
+    // =================================
+    // AUTO CAPTIONS
+    // =================================
 
     let captionsEnabled =
         false;
@@ -745,23 +756,13 @@ async function createReel() {
             await transcribeVideo();
 
             captionsEnabled =
-                captionSegments.length > 0;
-
-            if (
-                !captionsEnabled &&
-                captionFullText
-            ) {
-
-                console.log(
-                    "No timestamp segments found."
-                );
-
-            }
+                captionSegments.length >
+                0;
 
         } catch (error) {
 
-            console.error(
-                "Caption Error:",
+            console.warn(
+                "Auto caption failed:",
                 error
             );
 
@@ -774,11 +775,8 @@ async function createReel() {
                     "block";
 
                 captionStatus.textContent =
-                    "❌ Auto Captions failed: " +
-                    error.message;
-
+                    "⚠️ Auto Captions unavailable. Creating reel without captions.";
             }
-
         }
 
     } else {
@@ -787,35 +785,28 @@ async function createReel() {
         captionFullText = "";
 
         if (captionStatus) {
-
             captionStatus.style.display =
                 "none";
-
         }
 
     }
 
-    // =============================
-    // CREATE FILES
-    // =============================
+    const inputName =
+        "input.mp4";
+
+    const outputName =
+        "mediamind-reel.mp4";
+
+    const ratio =
+        aspectRatioInput?.value ||
+        "9:16";
 
     try {
-
-        const inputName =
-            "input.mp4";
-
-        const outputName =
-            "mediamind-reel.mp4";
-
-        // =============================
-        // WRITE VIDEO
-        // =============================
 
         if (ffmpegStatus) {
 
             ffmpegStatus.textContent =
                 "🟡 Loading video into FFmpeg...";
-
         }
 
         await ffmpeg.writeFile(
@@ -825,80 +816,31 @@ async function createReel() {
             )
         );
 
-        // =============================
-        // ASPECT RATIO
-        // =============================
-
-        let videoFilter;
-
-        if (
-            aspectRatioInput.value ===
-            "9:16"
-        ) {
-
-            videoFilter =
-                "scale=720:1280:" +
-                "force_original_aspect_ratio=decrease," +
-                "pad=720:1280:" +
-                "(ow-iw)/2:" +
-                "(oh-ih)/2";
-
-        } else {
-
-            videoFilter =
-                "scale=1080:1080:" +
-                "force_original_aspect_ratio=decrease," +
-                "pad=1080:1080:" +
-                "(ow-iw)/2:" +
-                "(oh-ih)/2";
-
-        }
-
-        // =============================
-        // CAPTION FILTER
-        // =============================
-
         let finalVideoFilter =
-            videoFilter;
+            makeVideoFilter(
+                ratio
+            );
 
         if (captionsEnabled) {
 
-            try {
-
-                const captionFilter =
-                    createCaptionFilter(
-                        startTime,
-                        finalDuration
-                    );
-
-                if (captionFilter) {
-
-                    finalVideoFilter =
-                        videoFilter +
-                        "," +
-                        captionFilter;
-
-                    console.log(
-                        "📝 Caption filter created:",
-                        finalVideoFilter
-                    );
-
-                }
-
-            } catch (captionFilterError) {
-
-                console.error(
-                    "Caption Filter Error:",
-                    captionFilterError
+            const captionFilter =
+                createCaptionFilter(
+                    startTime,
+                    finalDuration
                 );
 
-            }
+            if (captionFilter) {
 
+                finalVideoFilter +=
+                    "," +
+                    captionFilter;
+            }
         }
 
-        // =============================
-        // RUN FFMPEG
-        // =============================
+        console.log(
+            "🎬 Final FFmpeg filter:",
+            finalVideoFilter
+        );
 
         if (ffmpegStatus) {
 
@@ -906,13 +848,7 @@ async function createReel() {
                 captionsEnabled
                     ? "🟡 Burning captions into video..."
                     : "🟡 Creating Reel...";
-
         }
-
-        console.log(
-            "🎬 Final FFmpeg Filter:",
-            finalVideoFilter
-        );
 
         await ffmpeg.exec([
 
@@ -937,6 +873,12 @@ async function createReel() {
             "-crf",
             "28",
 
+            "-pix_fmt",
+            "yuv420p",
+
+            "-tag:v",
+            "avc1",
+
             "-c:a",
             "aac",
 
@@ -950,10 +892,6 @@ async function createReel() {
 
         ]);
 
-        // =============================
-        // READ OUTPUT
-        // =============================
-
         const data =
             await ffmpeg.readFile(
                 outputName
@@ -961,22 +899,17 @@ async function createReel() {
 
         const blob =
             new Blob(
-                [data.buffer],
+                [data],
                 {
                     type: "video/mp4"
                 }
             );
-
-        // =============================
-        // CREATE URL
-        // =============================
 
         if (reelURL) {
 
             URL.revokeObjectURL(
                 reelURL
             );
-
         }
 
         reelURL =
@@ -984,18 +917,29 @@ async function createReel() {
                 blob
             );
 
-        // =============================
-        // SHOW RESULT
-        // =============================
-
         if (resultVideo) {
+
+            resultVideo.pause();
+
+            resultVideo.removeAttribute(
+                "src"
+            );
+
+            resultVideo.load();
 
             resultVideo.src =
                 reelURL;
 
+            resultVideo.controls =
+                true;
+
+            resultVideo.playsInline =
+                true;
+
             resultVideo.style.display =
                 "block";
 
+            resultVideo.load();
         }
 
         if (downloadReel) {
@@ -1008,7 +952,6 @@ async function createReel() {
 
             downloadReel.style.display =
                 "inline-block";
-
         }
 
         if (reelDetails) {
@@ -1028,7 +971,7 @@ async function createReel() {
 
                 <p>
                     <strong>Aspect Ratio:</strong>
-                    ${aspectRatioInput.value}
+                    ${ratio}
                 </p>
 
                 <p>
@@ -1042,24 +985,16 @@ async function createReel() {
                     ${
                         captionsEnabled
                             ? "Burned into video ✅"
-                            : (
-                                autoCaption &&
-                                autoCaption.checked
-                            )
-                                ? "Enabled but no caption segments"
-                                : "Disabled"
+                            : "Disabled"
                     }
                 </p>
 
             `;
-
         }
 
         if (reelResult) {
-
             reelResult.style.display =
                 "block";
-
         }
 
         if (ffmpegStatus) {
@@ -1068,26 +1003,21 @@ async function createReel() {
                 captionsEnabled
                     ? "🟢 Reel + Captions Created Successfully!"
                     : "🟢 Reel Created Successfully!";
-
         }
 
         if (progressBar) {
-
             progressBar.style.width =
                 "100%";
-
         }
 
         if (progressText) {
-
             progressText.textContent =
                 "100%";
-
         }
 
-        // =============================
+        // =================================
         // CLEANUP
-        // =============================
+        // =================================
 
         try {
 
@@ -1105,13 +1035,12 @@ async function createReel() {
                 "Cleanup:",
                 cleanupError
             );
-
         }
 
     } catch (error) {
 
         console.error(
-            "Reel Creation Error:",
+            "❌ Reel Creation Error:",
             error
         );
 
@@ -1119,26 +1048,23 @@ async function createReel() {
 
             ffmpegStatus.textContent =
                 "🔴 Reel Creation Failed";
-
         }
-
-        console.error(
-            "Full Error:",
-            error.message
-        );
 
         alert(
             "Reel creation failed.\n\n" +
-            error.message
+            (
+                error?.message ||
+                "Unknown error"
+            )
         );
 
     }
 
 }
 
-// =============================
-// PREVIEW REEL
-// =============================
+// =====================================
+// PREVIEW
+// =====================================
 
 function previewReel() {
 
@@ -1157,18 +1083,35 @@ function previewReel() {
             behavior: "smooth"
         });
 
-        resultVideo.play();
-
+        resultVideo
+            .play()
+            .catch(() => {});
     }
 
 }
 
-// =============================
-// MAKE FUNCTIONS AVAILABLE
-// =============================
+// =====================================
+// GLOBAL FUNCTIONS
+// =====================================
 
 window.createReel =
     createReel;
 
 window.previewReel =
     previewReel;
+
+// =====================================
+// INITIALIZE
+// =====================================
+
+console.log(
+    "🎬 MediaMind AI Video Module Loaded"
+);
+
+if (ffmpegStatus) {
+
+    ffmpegStatus.textContent =
+        "🟡 FFmpeg Loading...";
+}
+
+loadFFmpeg();
