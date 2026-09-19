@@ -122,7 +122,7 @@ professional photography,
         try {
 
             const response = await fetch(
-                "http://localhost:3000/api/generate-image",
+                "https://mediamind-ai-backend.onrender.com/api/generate-image",
                 {
                     method: "POST",
                     headers: {
