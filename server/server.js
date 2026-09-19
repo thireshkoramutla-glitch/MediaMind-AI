@@ -7,7 +7,7 @@ const path = require("path");
 require("dotenv").config();
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 const projectFolder = path.join(__dirname, "..");
 const uploadFolder = path.join(__dirname, "uploads");
@@ -708,7 +708,7 @@ app.use(
 
 app.listen(
     PORT,
-
+    "0.0.0.0",
     () => {
 
         console.log("");
